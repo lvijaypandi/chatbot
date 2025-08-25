@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         APP_DIR = "/opt/chatbot"
-        PORT = "3000"
     }
 
     stages {
@@ -17,26 +16,22 @@ pipeline {
             steps {
                 sh """
                 cd $APP_DIR
+                sudo chown -R jenkins:jenkins $APP_DIR
                 npm install
                 """
             }
         }
 
-        stage('Stop Existing App') {
-            steps {
-                sh """
-                if pgrep -f "node server.js"; then
-                    pkill -f "node server.js"
-                fi
-                """
-            }
-        }
-
-        stage('Start App') {
+        stage('Restart App with PM2') {
             steps {
                 sh """
                 cd $APP_DIR
-                nohup node server.js > app.log 2>&1 &
+                if pm2 list | grep -q chatbot; then
+                    pm2 restart chatbot
+                else
+                    pm2 start server.js --name chatbot
+                fi
+                pm2 save
                 """
             }
         }
@@ -44,7 +39,7 @@ pipeline {
 
     post {
         success {
-            echo "Chatbot deployed successfully!"
+            echo "Chatbot deployed successfully with PM2!"
         }
         failure {
             echo "Deployment failed!"
